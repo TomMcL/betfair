@@ -29,56 +29,61 @@
 package betfair
 
 import (
+	"crypto/rand"
+	"crypto/tls"
 	"errors"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	"io/ioutil"
 	"time"
-	"crypto/rand"
-	"crypto/tls"
 )
 
 const (
-	LIVE_DATA	= 0
-	DELAY_DATA	= 1
+	LIVE_DATA  = 0
+	DELAY_DATA = 1
 )
 
-var ukEndpoints = map[string]string{
-	"certLogin" : "https://identitysso-api.betfair.com/api/certlogin",
-	"auth"		: "https://identitysso.betfair.com/api/",
-	"betting"	: "https://api.betfair.com/exchange/betting/rest/v1.0/",
-	"account"	: "https://api.betfair.com/exchange/account/rest/v1.0/",
+var ukEndpoints = map[string][]string{
+	"certLogin": {"https://identitysso-api.betfair.com/api/certlogin", "POST"},
+	"auth":      {"https://identitysso.betfair.com/api/", "POST"},
+	"betting":   {"https://api.betfair.com/exchange/betting/rest/v1.0/", "POST"},
+	"account":   {"https://api.betfair.com/exchange/account/rest/v1.0/", "GET"},
 }
 
-var auEndpoints = map[string]string{
-	"certLogin" : "https://identitysso-api.betfair.com/api/certlogin",
-	"auth"		: "https://identitysso.betfair.com/api/",
-	"betting"	: "https://api-au.betfair.com/exchange/betting/rest/v1.0/",
-	"account"	: "https://api-au.betfair.com/exchange/account/rest/v1.0/",
+var auEndpoints = map[string][]string{
+	"certLogin": {"https://identitysso-api.betfair.com/api/certlogin", "POST"},
+	"auth":      {"https://identitysso.betfair.com/api/", "POST"},
+	"betting":   {"https://api-au.betfair.com/exchange/betting/rest/v1.0/", "POST"},
+	"account":   {"https://api-au.betfair.com/exchange/account/rest/v1.0/", "GET"},
 }
 
-var endpointMap = map[string]map[string]string{
+var endpointMap = map[string]map[string][]string{
 	"UK": ukEndpoints,
 	"AU": auEndpoints,
 }
 
+type RequestSpecification struct {
+	Url  string
+	Type string
+}
+
 type Config struct {
-	Username 	string
-	Password 	string
-	CertFile 	string
-	KeyFile 	string
-	Exchange	string
-	Locale		string
+	Username string
+	Password string
+	CertFile string
+	KeyFile  string
+	Exchange string
+	Locale   string
 }
 
 type Session struct {
-	config		*Config
-	httpClient	*http.Client
-	token 		string
-	appKeys		[2]string
-	Live		bool
+	config     *Config
+	httpClient *http.Client
+	token      string
+	appKeys    [2]string
+	Live       bool
 }
 
 // Create a new session. Please note that you have to login to retrieve a
@@ -89,10 +94,10 @@ func NewSession(c *Config) (*Session, error) {
 
 	// Configuration
 	if c.Username == "" {
-		return s, errors.New("Config.Username is empty.")		
+		return s, errors.New("Config.Username is empty.")
 	}
 	if c.Password == "" {
-		return s, errors.New("Config.Password is empty.")		
+		return s, errors.New("Config.Password is empty.")
 	}
 	if _, err := os.Stat(c.CertFile); os.IsNotExist(err) {
 		return s, errors.New("Config.CertFile does not exist.")
@@ -114,13 +119,13 @@ func NewSession(c *Config) (*Session, error) {
 	if err != nil {
 		return s, err
 	}
-	ssl := &tls.Config {
-		Certificates: []tls.Certificate{cert},
+	ssl := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: true,
 	}
 	ssl.Rand = rand.Reader
-	s.httpClient = &http.Client {
-		Transport: &http.Transport {
+	s.httpClient = &http.Client{
+		Transport: &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) {
 				return net.DialTimeout(network, addr, time.Duration(time.Second*3))
 			},
@@ -132,32 +137,36 @@ func NewSession(c *Config) (*Session, error) {
 }
 
 // Builds URLs for API methods.
-func (s *Session) getUrl(key, method string) (string, error) {
+func (s *Session) getRequestSpec(key, method string) (RequestSpecification, error) {
 	if _, exists := endpointMap[s.config.Exchange][key]; exists == false {
-		return "", errors.New("Invalid endpoint key: " + key)
+		return RequestSpecification{}, errors.New("Invalid endpoint key: " + key)
 	}
-	return endpointMap[s.config.Exchange][key] + method, nil
+	url := endpointMap[s.config.Exchange][key][0] + method
+	requestType := endpointMap[s.config.Exchange][key][1]
+	if requestType == "GET" {
+		url += "/"
+	}
+	return RequestSpecification{url, requestType}, nil
 }
 
 // Makes requests to Betfair API via http client.
 func doRequest(s *Session, key, method string, body *strings.Reader) ([]byte, error) {
 
-	endpoint, err := s.getUrl(key, method)
+	reqSpec, err := s.getRequestSpec(key, method)
 	if err != nil {
 		return nil, err
-	}	
+	}
 
-	req, err := http.NewRequest("POST", endpoint, body)
+	req, err := http.NewRequest(reqSpec.Type, reqSpec.Url, body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/json")
-
 	if key == "certLogin" {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		// In non-interactive login, X-Application is not validated
-		req.Header.Set("X-Application", "Betfair Golang Library")		
+		req.Header.Set("X-Application", "Gofair")
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Authentication", s.token)
@@ -167,11 +176,10 @@ func doRequest(s *Session, key, method string, body *strings.Reader) ([]byte, er
 			if s.Live {
 				req.Header.Set("X-Application", s.appKeys[LIVE_DATA])
 			} else {
-				req.Header.Set("X-Application", s.appKeys[DELAY_DATA])				
+				req.Header.Set("X-Application", s.appKeys[DELAY_DATA])
 			}
-		}		
+		}
 	}
-	
 	res, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err

@@ -27,140 +27,142 @@
 package betfair
 
 import (
-	"time"
 	"encoding/json"
 	"strings"
+	"time"
 	// "log"
 )
 
 type MarketFilter struct {
-	TextQuery		string		`json:"textQuery,omitempty"`
-	ExchangeIds		[]string	`json:"exchangeIds,omitempty"`
-	EventTypeIds	[]string	`json:"eventTypeIds,omitempty"`
-	MarketCountries	[]string	`json:"marketCountries,omitempty"`
-	MarketIds		[]string	`json:"marketIds,omitempty"`
+	TextQuery       string   `json:"textQuery,omitempty"`
+	ExchangeIds     []string `json:"exchangeIds,omitempty"`
+	EventTypeIds    []string `json:"eventTypeIds,omitempty"`
+	EventIds        []string `json:"eventIds,omitempty"`
+	CompetitionIds  []string `json:"competitionIds,omitempty"`
+	MarketCountries []string `json:"marketCountries,omitempty"`
+	MarketIds       []string `json:"marketIds,omitempty"`
 }
 
 type PriceProjection struct {
-	PriceData	[]string	`json:"priceData,omitempty"`
+	PriceData []string `json:"priceData,omitempty"`
 }
 
 type Params struct {
-	MarketFilter	*MarketFilter 	`json:"filter,omitempty"`
-	MarketIds		[]string		`json:"marketIds,omitempty"`
+	MarketFilter    *MarketFilter    `json:"filter,omitempty"`
+	MarketIds       []string         `json:"marketIds,omitempty"`
 	PriceProjection *PriceProjection `json:"priceProjection,omitempty"`
-	MaxResults		int				`json:"maxResults,omitempty"`
-	Locale			string			`json:"locale,omitempty"`
+	MaxResults      int              `json:"maxResults,omitempty"`
+	Locale          string           `json:"locale,omitempty"`
 }
 
 type EventType struct {
-	Id 			string
-	Name 		string
+	Id   string
+	Name string
 }
 
 type EventTypeResult struct {
-	EventType	*EventType
-	MarketCount	int
+	EventType   *EventType
+	MarketCount int
 }
 
 type Competition struct {
-	Id			string
-	Name		string
+	Id   string
+	Name string
 }
 
 type CompetitionResult struct {
-	Competition	*Competition
-	MarketCount	int
+	Competition       *Competition
+	MarketCount       int
 	CompetitionRegion string
 }
 
 type CountryCodeResult struct {
-	CountryCode	string
-	MarketCount	int
+	CountryCode string
+	MarketCount int
 }
 
 type Event struct {
-	Id 			string
-	Name 		string
+	Id          string
+	Name        string
 	CountryCode string
-	Timezone 	string
-	Venue 		string
-	OpenDate 	time.Time
+	Timezone    string
+	Venue       string
+	OpenDate    time.Time
 }
 
 type EventResult struct {
-	Event		*Event
-	MarketCount	int
+	Event       *Event
+	MarketCount int
 }
 
 type MarketBook struct {
-	MarketId			string
-	IsMarketDataDelayed	bool
-	Status				string
-	BetDelay			int
-	BspReconciled		bool
-	Complete			bool
-	Inplay				bool
-	NumberOfWinners		int
-	NumberOfRunners		int
+	MarketId              string
+	IsMarketDataDelayed   bool
+	Status                string
+	BetDelay              int
+	BspReconciled         bool
+	Complete              bool
+	Inplay                bool
+	NumberOfWinners       int
+	NumberOfRunners       int
 	NumberOfActiveRunners int
-	LastMatchTime		time.Time
-	TotalMatched		float32
-	TotalAvailable		float32
-	CrossMatching		bool
-	RunnersVoidable		bool
-	Version				int
-	Runners				[]Runner
+	LastMatchTime         time.Time
+	TotalMatched          float32
+	TotalAvailable        float32
+	CrossMatching         bool
+	RunnersVoidable       bool
+	Version               int
+	Runners               []Runner
 }
 
 type Runner struct {
-	SelectionId	int
+	SelectionId int
 }
 
 // Information about the Runners (selections) in a market.
 type RunnerCatalog struct {
-	SelectionId		uint32
-	RunnerName		string
-	Handicap		float32
-	SortPriority	int
-	Metadata		map[string]string
+	SelectionId  uint32
+	RunnerName   string
+	Handicap     float32
+	SortPriority int
+	Metadata     map[string]string
 }
 
 // Information about a market.
 type MarketCatalogue struct {
-	MarketId		string
-	MarketName		string
-	MarketStartTime	time.Time
-	Description		*MarketDescription
-	Runners			[]RunnerCatalog
-	EventType		*EventType
-	Competition		*Competition
-	Event			*Event
+	MarketId        string
+	MarketName      string
+	MarketStartTime time.Time
+	Description     *MarketDescription
+	Runners         []RunnerCatalog
+	EventType       *EventType
+	Competition     *Competition
+	Event           *Event
 }
 
 // Market definition.
 type MarketDescription struct {
-	PersistenceEnabled	bool
-	BspMarket			bool
-	MarketTime			time.Time
-	SuspendTime			time.Time
-	SettleTime			time.Time
-	BettingType			string
-	TurnInPlayEnabled	bool
-	MarketType			string
-	Regulator			string
-	MarketBaseRate		float32
-	DiscountAllowed		bool
-	Wallet				string
-	Rules				string
-	RulesHasDate		bool
-	Clarifications		string
+	PersistenceEnabled bool
+	BspMarket          bool
+	MarketTime         time.Time
+	SuspendTime        time.Time
+	SettleTime         time.Time
+	BettingType        string
+	TurnInPlayEnabled  bool
+	MarketType         string
+	Regulator          string
+	MarketBaseRate     float32
+	DiscountAllowed    bool
+	Wallet             string
+	Rules              string
+	RulesHasDate       bool
+	Clarifications     string
 }
 
 // MarketType Result.
 type MarketTypeResult struct {
-	MarketType	string
-	MarketCount	int
+	MarketType  string
+	MarketCount int
 }
 
 // Returns a list of Competitions (i.e., World Cup 2013) associated with the
@@ -211,7 +213,7 @@ func (s *Session) ListMarketBook(marketIds []string) ([]MarketBook, error) {
 	params := new(Params)
 	params.MarketIds = marketIds
 	err := doBettingRequest(s, "listMarketBook", params, &results)
-	return results, err	
+	return results, err
 }
 
 // Returns a list of information about markets that does not change (or
@@ -230,12 +232,12 @@ func (s *Session) ListMarketCatalogue(filter *MarketFilter, maxResults int) ([]M
 // Returns a list of market types (i.e. MATCH_ODDS, NEXT_GOAL) associated
 // with the markets selected by the MarketFilter. The market types are always
 // the same, regardless of locale.
-func (s *Session) ListMarketTypes (filter *MarketFilter) ([]MarketTypeResult, error) {
+func (s *Session) ListMarketTypes(filter *MarketFilter) ([]MarketTypeResult, error) {
 	var results []MarketTypeResult
 	params := new(Params)
 	params.MarketFilter = filter
 	err := doBettingRequest(s, "listMarketTypes", params, &results)
-	return results, err	
+	return results, err
 }
 
 func doBettingRequest(s *Session, method string, params *Params, v interface{}) error {
@@ -248,7 +250,7 @@ func doBettingRequest(s *Session, method string, params *Params, v interface{}) 
 	}
 	body := strings.NewReader(string(bytes))
 
-	data, err := doRequest(s, "betting", method + "/", body)
+	data, err := doRequest(s, "betting", method+"/", body)
 	if err != nil {
 		return err
 	}
