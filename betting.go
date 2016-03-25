@@ -33,6 +33,46 @@ import (
 	// "log"
 )
 
+type baseProjectionVal string
+type OrderProjVal baseProjectionVal
+type MarketProjVal baseProjectionVal
+type MatchProjVal baseProjectionVal
+
+// Constant values for use in order projections
+const (
+	OrderProjectionAll               OrderProjVal = "ALL"
+	OrderProjectionExecutable                     = "EXECUTABLE"
+	OrderProjectionExecutionComplete              = "EXECUTION_COMPLETE"
+)
+
+// Constant values for use in match projections
+const (
+	MatchProjectionNoRollup           MatchProjVal = "NO_ROLLUP"
+	MatchProjectionRolledUpByPrice                 = "ROLLED_UP_BY_PRICE"
+	MatchProjectionRolledUpByAvgPrice              = "ROLLED_UP_BY_AVG_PRICE"
+)
+
+// Constant values for use in market projections
+const (
+	MarketProjectionCompetition       MarketProjVal = "COMPETITION"
+	MarketProjectionEvent                           = "EVENT"
+	MarketProjectionEventType                       = "EVENT_TYPE"
+	MarketProjectionMarketStartTime                 = "MARKET_START_TIME"
+	MarketProjectionMarketDescription               = "MARKET_DESCRIPTION"
+	MarketProjectionRunnerDescription               = "RUNNER_DESCRIPTION"
+	MarketProjectionRunnerMetadata                  = "RUNNER_METADATA"
+)
+
+// ProjectionParams contains the various projections
+// for assigning to requests
+type ProjectionParams struct {
+	MarketProjection []MarketProjVal
+	PriceProjection  *PriceProjection
+	OrderProjection  []OrderProjVal
+	MatchProjection  []MatchProjVal
+}
+
+// MarketFilter allows various filtering of market types
 type MarketFilter struct {
 	TextQuery       string   `json:"textQuery,omitempty"`
 	ExchangeIds     []string `json:"exchangeIds,omitempty"`
@@ -41,25 +81,42 @@ type MarketFilter struct {
 	CompetitionIds  []string `json:"competitionIds,omitempty"`
 	MarketCountries []string `json:"marketCountries,omitempty"`
 	MarketIds       []string `json:"marketIds,omitempty"`
+	MarketTypeCodes []string `json:"marketTypeCodes,omitempty"`
 }
 
+// PriceProjection sets data returned from price queries
 type PriceProjection struct {
 	PriceData []string `json:"priceData,omitempty"`
 }
 
+// Params sets up the required parameters for betfair requests
 type Params struct {
-	MarketFilter    *MarketFilter    `json:"filter,omitempty"`
-	MarketIds       []string         `json:"marketIds,omitempty"`
-	PriceProjection *PriceProjection `json:"priceProjection,omitempty"`
-	MaxResults      int              `json:"maxResults,omitempty"`
-	Locale          string           `json:"locale,omitempty"`
+	MarketFilter     *MarketFilter    `json:"filter,omitempty"`
+	MarketIds        []string         `json:"marketIds,omitempty"`
+	PriceProjection  *PriceProjection `json:"priceProjection,omitempty"`
+	MarketProjection []MarketProjVal  `json:"marketProjection,omitempty"`
+	OrderProjection  []OrderProjVal   `json:"orderProjection,omitempty"`
+	MatchProjection  []MatchProjVal   `json:"matchProjection,omitempty"`
+	MaxResults       int              `json:"maxResults,omitempty"`
+	Locale           string           `json:"locale,omitempty"`
 }
 
+// SetProjections applies the projections from a param object to the general
+// params object
+func (p *Params) SetProjections(params *ProjectionParams) {
+	p.PriceProjection = params.PriceProjection
+	p.MarketProjection = params.MarketProjection
+	p.OrderProjection = params.OrderProjection
+	p.MatchProjection = params.MatchProjection
+}
+
+// EventType represents the name and betfair ID of events
 type EventType struct {
-	Id   string
+	ID   string
 	Name string
 }
 
+// EventTypeResult
 type EventTypeResult struct {
 	EventType   *EventType
 	MarketCount int
@@ -134,6 +191,7 @@ type MarketCatalogue struct {
 	MarketName      string
 	MarketStartTime time.Time
 	Description     *MarketDescription
+	TotalMatched    float32
 	Runners         []RunnerCatalog
 	EventType       *EventType
 	Competition     *Competition
@@ -205,7 +263,7 @@ func (s *Session) ListEventTypes(filter *MarketFilter) ([]EventTypeResult, error
 	return results, err
 }
 
-// Returns a list of dynamic data about markets. Dynamic data includes prices,
+// ListMarketBook Returns a list of dynamic data about markets. Dynamic data includes prices,
 // the status of the market, the status of selections, the traded volume, and
 // the status of any orders you have placed in the market.
 func (s *Session) ListMarketBook(marketIds []string) ([]MarketBook, error) {
@@ -216,15 +274,16 @@ func (s *Session) ListMarketBook(marketIds []string) ([]MarketBook, error) {
 	return results, err
 }
 
-// Returns a list of information about markets that does not change (or
+// ListMarketCatalogue Returns a list of information about markets that does not change (or
 // changes very rarely). You use listMarketCatalogue to retrieve the name
 // of the market, the names of selections and other information about markets.
 // Market Data Request Limits apply to requests made to listMarketCatalogue.
-func (s *Session) ListMarketCatalogue(filter *MarketFilter, maxResults int) ([]MarketCatalogue, error) {
+func (s *Session) ListMarketCatalogue(filter *MarketFilter, maxResults int, projectionsParam *ProjectionParams) ([]MarketCatalogue, error) {
 	var results []MarketCatalogue
 	params := new(Params)
 	params.MarketFilter = filter
 	params.MaxResults = maxResults
+	params.SetProjections(projectionsParam)
 	err := doBettingRequest(s, "listMarketCatalogue", params, &results)
 	return results, err
 }
