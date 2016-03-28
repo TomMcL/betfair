@@ -33,10 +33,11 @@ import (
 	// "log"
 )
 
-type baseProjectionVal string
-type OrderProjVal baseProjectionVal
-type MarketProjVal baseProjectionVal
-type MatchProjVal baseProjectionVal
+type baseEnumVal string
+type OrderProjVal baseEnumVal
+type MarketProjVal baseEnumVal
+type MatchProjVal baseEnumVal
+type PriceDataVal baseEnumVal
 
 // Constant values for use in order projections
 const (
@@ -63,13 +64,21 @@ const (
 	MarketProjectionRunnerMetadata                  = "RUNNER_METADATA"
 )
 
+const (
+	PriceDataSPAvailable  PriceDataVal = "SP_AVAILABLE"
+	PriceDataSPTraded                  = "SP_TRADED"
+	PriceDataEXBestOffers              = "EX_BEST_OFFERS"
+	PriceDataEXAllOffers               = "EX_ALL_OFFERS"
+	PriceDataEXTraded                  = "EX_TRADED"
+)
+
 // ProjectionParams contains the various projections
 // for assigning to requests
 type ProjectionParams struct {
 	MarketProjection []MarketProjVal
 	PriceProjection  *PriceProjection
-	OrderProjection  []OrderProjVal
-	MatchProjection  []MatchProjVal
+	OrderProjection  OrderProjVal
+	MatchProjection  MatchProjVal
 }
 
 // MarketFilter allows various filtering of market types
@@ -86,7 +95,7 @@ type MarketFilter struct {
 
 // PriceProjection sets data returned from price queries
 type PriceProjection struct {
-	PriceData []string `json:"priceData,omitempty"`
+	PriceData []PriceDataVal `json:"priceData,omitempty"`
 }
 
 // Params sets up the required parameters for betfair requests
@@ -95,8 +104,8 @@ type Params struct {
 	MarketIds        []string         `json:"marketIds,omitempty"`
 	PriceProjection  *PriceProjection `json:"priceProjection,omitempty"`
 	MarketProjection []MarketProjVal  `json:"marketProjection,omitempty"`
-	OrderProjection  []OrderProjVal   `json:"orderProjection,omitempty"`
-	MatchProjection  []MatchProjVal   `json:"matchProjection,omitempty"`
+	OrderProjection  OrderProjVal     `json:"orderProjection,omitempty"`
+	MatchProjection  MatchProjVal     `json:"matchProjection,omitempty"`
 	MaxResults       int              `json:"maxResults,omitempty"`
 	Locale           string           `json:"locale,omitempty"`
 }
@@ -266,10 +275,11 @@ func (s *Session) ListEventTypes(filter *MarketFilter) ([]EventTypeResult, error
 // ListMarketBook Returns a list of dynamic data about markets. Dynamic data includes prices,
 // the status of the market, the status of selections, the traded volume, and
 // the status of any orders you have placed in the market.
-func (s *Session) ListMarketBook(marketIds []string) ([]MarketBook, error) {
+func (s *Session) ListMarketBook(marketIds []string, projectionsParam *ProjectionParams) ([]MarketBook, error) {
 	var results []MarketBook
 	params := new(Params)
 	params.MarketIds = marketIds
+	params.SetProjections(projectionsParam)
 	err := doBettingRequest(s, "listMarketBook", params, &results)
 	return results, err
 }

@@ -127,7 +127,7 @@ func NewSession(c *Config) (*Session, error) {
 	s.httpClient = &http.Client{
 		Transport: &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) {
-				return net.DialTimeout(network, addr, time.Duration(time.Second*3))
+				return net.DialTimeout(network, addr, time.Duration(time.Second*10))
 			},
 			TLSClientConfig: ssl,
 		},
@@ -163,6 +163,7 @@ func doRequest(s *Session, key, method string, body *strings.Reader) ([]byte, er
 	}
 
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Connection", "keep-alive")
 	if key == "certLogin" {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		// In non-interactive login, X-Application is not validated
