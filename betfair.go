@@ -127,7 +127,7 @@ func NewSession(c *Config) (*Session, error) {
 	s.httpClient = &http.Client{
 		Transport: &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) {
-				return net.DialTimeout(network, addr, time.Duration(time.Second*10))
+				return net.DialTimeout(network, addr, time.Duration(time.Second*3))
 			},
 			TLSClientConfig: ssl,
 		},

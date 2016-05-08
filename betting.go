@@ -34,16 +34,51 @@ import (
 )
 
 type baseEnumVal string
+
+// OrderProjVal Enum for order projections
 type OrderProjVal baseEnumVal
+
+// MarketProjVal Enum for market projections
 type MarketProjVal baseEnumVal
+
+// MatchProjVal Enum for match projections
 type MatchProjVal baseEnumVal
+
+// PriceDataVal Enum for price data values
 type PriceDataVal baseEnumVal
+
+// RunnerStatusVal Enum for runner status values
+type RunnerStatusVal baseEnumVal
+
+// OrderTypeVal Enum of Order types
+type OrderTypeVal baseEnumVal
+
+// OrderStatusVal Enum of current order status (executable or complete), same as order projections
+type OrderStatusVal baseEnumVal
+
+// PersistenceTypeVal Enum of what to do with order when market turns Inplay
+type PersistenceTypeVal baseEnumVal
+
+// SideVal Enum of side, back or lay
+type SideVal baseEnumVal
+
+// Constants for side, back or lay
+const (
+	SideBack SideVal = "BACK"
+	SideLay          = "LAY"
+)
 
 // Constant values for use in order projections
 const (
 	OrderProjectionAll               OrderProjVal = "ALL"
 	OrderProjectionExecutable                     = "EXECUTABLE"
 	OrderProjectionExecutionComplete              = "EXECUTION_COMPLETE"
+)
+
+// Constant values for order status
+const (
+	OrderStatusExecutionComplete OrderStatusVal = OrderProjectionExecutionComplete
+	OrderStatusExecutable                       = OrderProjectionExecutable
 )
 
 // Constant values for use in match projections
@@ -64,12 +99,37 @@ const (
 	MarketProjectionRunnerMetadata                  = "RUNNER_METADATA"
 )
 
+// Constant values for price data projections
 const (
 	PriceDataSPAvailable  PriceDataVal = "SP_AVAILABLE"
 	PriceDataSPTraded                  = "SP_TRADED"
 	PriceDataEXBestOffers              = "EX_BEST_OFFERS"
 	PriceDataEXAllOffers               = "EX_ALL_OFFERS"
 	PriceDataEXTraded                  = "EX_TRADED"
+)
+
+// Constant values representing runner status
+const (
+	RunnerStatusActive        RunnerStatusVal = "ACTIVE"
+	RunnerStatusWinner                        = "WINNER"
+	RunnerStatusLoser                         = "LOSER"
+	RunnerStatusRemovedVacant                 = "REMOVED_VACANT"
+	RunnerStatusRemoved                       = "REMOVED"
+	RunnerStatusHidden                        = "HIDDEN"
+)
+
+// Constant values for what to do with order when it turns in play
+const (
+	PersistenceTypeLapse         PersistenceTypeVal = "LAPSE"
+	PersistenceTypePersist                          = "PERSIST"
+	PersistenceTypeMarketOnClose                    = "MARKET_ON_CLOSE"
+)
+
+// Constant values for types of order
+const (
+	OrderTypeLimit         OrderTypeVal = "LIMIT"
+	OrderTypeLimitOnClose               = "LIMIT_ON_CLOSE"
+	OrderTypeMarketOnClose              = "MARKET_ON_CLOSE"
 )
 
 // ProjectionParams contains the various projections
@@ -125,7 +185,7 @@ type EventType struct {
 	Name string
 }
 
-// EventTypeResult
+// EventTypeResult Response for query on event types
 type EventTypeResult struct {
 	EventType   *EventType
 	MarketCount int
@@ -161,6 +221,58 @@ type EventResult struct {
 	MarketCount int
 }
 
+// PriceSize gives price and size of stake
+type PriceSize struct {
+	Price float32 `json:"price,omitempty"`
+	Size  float32 `json:"size,omitempty"`
+}
+
+// StartingPrices Information about the Betfair Starting Price. Only available in BSP markets
+type StartingPrices struct {
+	NearPrice         float32     `json:"nearPrice,omitempty"`
+	FarPrice          float32     `json:"farPrice,omitempty"`
+	BackStakeTaken    []PriceSize `json:"backStakeTaken,omitempty"`
+	LayLiabilityTaken []PriceSize `json:"layLiabilityTaken,omitempty"`
+	ActualSP          float32     `json:"actualSP,omitempty"`
+}
+
+// ExchangePrices Prices available to back and lay with volume
+type ExchangePrices struct {
+	AvailableToBack []PriceSize `json:"availableToBack,omitempty"`
+	AvailableToLay  []PriceSize `json:"availableToLay,omitempty"`
+	TradedVolume    []PriceSize `json:"TradedVolume,omitempty"`
+}
+
+// Order Struct representing a market order
+type Order struct {
+	BetId           string
+	OrderType       OrderTypeVal
+	Status          OrderStatusVal
+	PersistenceType PersistenceTypeVal
+	Side            SideVal
+	Price           float32
+	Size            float32
+	BspLiability    float32
+	PlacedDate      time.Time
+	AvgPriceMatched float32
+	SizeMatched     float32
+	SizeRemaining   float32
+	SizeLapsed      float32
+	SizeCancelled   float32
+	SizeVoided      float32
+}
+
+//Match An individual bet Match, or rollup by price or avg price. Rollup depends on the requested MatchProjection
+type Match struct {
+	BetID     string    `json:"betId,omitempty"`
+	MatchDate time.Time `json:"matchDate,omitempty"`
+	MatchID   string    `json:"matchId,omitempty"`
+	Price     string    `json:"price"`
+	Side      SideVal   `json:"side"`
+	Size      float32   `json:"size"`
+}
+
+// MarketBook showing data on a specific market
 type MarketBook struct {
 	MarketId              string
 	IsMarketDataDelayed   bool
@@ -181,11 +293,22 @@ type MarketBook struct {
 	Runners               []Runner
 }
 
+// Runner Details for each runner, containing current bets
 type Runner struct {
-	SelectionId int
+	SelectionID      uint32          `json:"selectionId,omitempty"`
+	Handicap         float32         `json:"handicap,omitempty"`
+	Status           RunnerStatusVal `json:"status,omitempty"`
+	AdjustmentFactor float32         `json:"adjustmentFactor,omitempty"`
+	LastPriceTraded  float32         `json:"lastPriceTraded,omitempty"`
+	TotalMatched     float32         `json:"totalMatched,omitempty"`
+	RemovalDate      time.Time       `json:"removalDate,omitempty"`
+	StartingPrices   StartingPrices  `json:"sp,omitempty"`
+	ExchangePrices   ExchangePrices  `json:"ex,omitempty"`
+	Orders           []Order         `json:"orders,omitempty"`
+	Matches          []Match         `json:"matches,omitempty"`
 }
 
-// Information about the Runners (selections) in a market.
+// RunnerCatalog Information about the Runners (selections) in a market.
 type RunnerCatalog struct {
 	SelectionId  uint32
 	RunnerName   string
@@ -194,7 +317,7 @@ type RunnerCatalog struct {
 	Metadata     map[string]string
 }
 
-// Information about a market.
+// MarketCatalogue Information about a market.
 type MarketCatalogue struct {
 	MarketId        string
 	MarketName      string
